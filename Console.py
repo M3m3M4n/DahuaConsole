@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 
 """
 Author: bashis <mcw noemail eu> 2019-2021
@@ -147,6 +147,14 @@ class DebugConsole(Servers):
             'dh_test': {
                 'cmd': 'self.dh.dh_test(msg)',
                 'help': 'TEST function (-h for params)',
+            },
+            'account': {
+                'cmd': 'self.dh.account(msg)',
+                'help': 'Account configs (-h for params)',
+            },
+            'add_account': {
+                'cmd': 'self.dh.add_account(msg)',
+                'help': 'Account configs (-h for params)',
             },
         }
 

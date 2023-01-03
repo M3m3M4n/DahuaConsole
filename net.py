@@ -448,7 +448,7 @@ sock.close()
             }
 
             dh_data = self.send_call(query_args)
-
+            # print(dh_data)
             users = '{}'.format(help_msg('Active Users'))
             if dh_data.get('params').get('users') is not None:
                 for user in dh_data.get('params').get('users'):
@@ -1900,6 +1900,7 @@ sock.close()
 
                     if p2p_header[24:28] == p32(0x0600f900, endian='big'):
                         self.SessionID = u32(p2p_header[16:20])
+                        log.info(f'SessionID1: {str(self.SessionID)}')
                         self.AuthCode = p2p_header[28:32]
                         self.ErrorCode = p2p_header[8:12]
 
@@ -1992,6 +1993,7 @@ sock.close()
         if dh_data.get('result'):
             login.success(color('Success', GREEN))
             self.SessionID = dh_data.get('session')
+            log.info(f'SessionID2: {str(self.SessionID)}')
             dh_realm = None
 
             if self.args.save:
@@ -2019,6 +2021,7 @@ sock.close()
             return False
 
         self.SessionID = dh_data.get('session')
+        log.info(f'SessionID3: {str(self.SessionID)}')
         dh_realm = dh_data.get('params').get('realm')
 
         if logon == 'onvif:digest':

@@ -1,8 +1,11 @@
 import copy
 
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Hash import MD5
 from OpenSSL import crypto
 from pathlib import Path
+import js2py
 
 """ Local imports """
 from utils import *
@@ -41,6 +44,8 @@ class DahuaFunctions(Network):
         self.attach_only = []
         self.Attach = []
         self.fuzz_factory = []
+
+        self.pubkey = None
 
     #
     # Send command to remote console, if not attached just ignore sending
@@ -503,6 +508,82 @@ class DahuaFunctions(Network):
 
         return
 
+    def account(self, msg):
+        cmd = msg.split()
+
+        usage = {
+            "add": "<username> <password> (add new admin account)",
+        }
+
+        if (len(cmd) != 4) or (cmd[1] == '-h'):
+            log.info('{}'.format(help_all(msg=msg, usage=usage)))
+            return False
+        else:
+            if cmd[1] == 'add':
+                username = cmd[2]
+                passwd = cmd[3]
+                log.info(f'Credentials: {username}:{passwd}')
+                md5hasher = MD5.new()
+                md5hasher.update(username.encode('utf-8') + b':Login to 5A02E82PAZ6C7B7:' + passwd.encode('utf-8'))
+                passwdmd5 = md5hasher.hexdigest().upper()
+                # 123456qwerty:123456qwerty => EBE0D6273C7D946B72B6B18F4AD3F7EF
+
+                if self.pubkey is None:
+                    if not self.get_encrypt_info():
+                        log.failure("Unable to retrieve RSA pubkey!")
+                        return
+
+                quote_random_unquote = 7922628549478492
+                quote_random_unquote_byte_str = str(quote_random_unquote).encode('utf-8')
+
+                # This rsa implementation is not compatible
+                cipher_rsa = PKCS1_OAEP.new(self.pubkey)
+                salt = cipher_rsa.encrypt(quote_random_unquote_byte_str).hex()
+
+                # =========== from debugger for testing =============
+                # From rsa-ing random above
+                # Cannot use python PKCS1_OAEP so use this, random is hardcoded anyway
+                testsalt = '892a688c792b4ba391cd2dd3f7770028414aaf33d1e1519783331d4a1e8e3694c6f447bf0acef42733dc472e55b8403a3b8e2c6b01cfc426e01907c2997f12a14b75294ce8b8a54aed54b8f2856c595a871043cac2dbd7f2b479c6ff8d420bf1fb78a493481874fcce59c969b5186f4707b1ed978796ff4a12787c6ae277fa5360aa9afbbed9ae68ab3a3cd116fcf7631a672784b87bdeb3509d04d16b1aab946d6721befff73cbb1253b2afe008a6242d93ed07ac0ecf1462f58c882cca7e21296ed81a4dc134f4777de7893f6af7b3f3e0f381075563874395030816495f84ec3002ea19b56051113b5d1596df1f9b0fd5c24346441a557a4f5fc1b1648333'
+                salt = testsalt
+                # =========== from debugger for testing =============
+
+                # Why? cause FU CryptoJS
+                CryptoJS = js2py.require('crypto-js')
+                key = CryptoJS.enc.Utf8.parse(quote_random_unquote)
+                id = self.ID
+                sess = self.SessionID
+
+                # =========== from debugger for testing =============
+                # sample
+                '''
+                jsondata = "[{\"method\":\"userManager.addUser\",\"params\":{\"user\":{\"Group\":\"admin\",\"Name\":\"123456qwerty\",\"Password\":\"EBE0D6273C7D946B72B6B18F4AD3F7EF\",\"MacOnly\":\"\",\"Memo\":\"\",\"Sharable\":true,\"AccessSchedule\":[[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"]],\"AuthorityList\":[\"Monitor_01\",\"Monitor_02\",\"Monitor_03\",\"Monitor_04\",\"Replay_01\",\"Replay_02\",\"Replay_03\",\"Replay_04\",\"AuthUserMag\",\"AuthSysCfg\",\"AuthSysInfo\",\"AuthManuCtr\",\"AuthStoreCfg\",\"AuthEventCfg\",\"AuthNetCfg\",\"AuthRmtDevice\",\"AuthSecurity\",\"AuthBackup\",\"AuthMaintence\"]}},\"id\":112,\"session\":\"143de2b85e60d4000fc2cd944c2116f8\"}]"
+                '''
+                # id = "112"
+                # sess = "143de2b85e60d4000fc2cd944c2116f8"
+                # =========== from debugger for testing =============
+
+                jsondata = f"[{{\"method\":\"userManager.addUser\",\"params\":{{\"user\":{{\"Group\":\"admin\",\"Name\":\"{username}\",\"Password\":\"{passwdmd5}\",\"MacOnly\":\"\",\"Memo\":\"\",\"Sharable\":true,\"AccessSchedule\":[[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"],[\"1 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\",\"0 00:00:00-24:00:00\"]],\"AuthorityList\":[\"Monitor_01\",\"Monitor_02\",\"Monitor_03\",\"Monitor_04\",\"Replay_01\",\"Replay_02\",\"Replay_03\",\"Replay_04\",\"AuthUserMag\",\"AuthSysCfg\",\"AuthSysInfo\",\"AuthManuCtr\",\"AuthStoreCfg\",\"AuthEventCfg\",\"AuthNetCfg\",\"AuthRmtDevice\",\"AuthSecurity\",\"AuthBackup\",\"AuthMaintence\"]}}}},\"id\":{id},\"session\":\"{sess}\"}}]"
+                content = CryptoJS.AES.encrypt(CryptoJS.enc.Utf8.parse(jsondata), key, {'mode': CryptoJS.mode.ECB, 'padding': CryptoJS.pad.ZeroPadding,}).toString()
+
+                query_args = {
+                    "method": "system.multiSec",
+                    "params": {
+                        "salt": salt,
+                        "cipher":"AES-128",
+                        "content": content
+                    }
+                }
+
+                dh_data = self.send_call(query_args)
+                
+                if dh_data.get('session'):
+                    log.success("Success")
+                    return True
+                else:
+                    log.failure("Something is wrong")
+                    return False
+            return False
+
     def telnetd_sshd(self, msg):
 
         cmd = msg.split()
@@ -948,33 +1029,38 @@ class DahuaFunctions(Network):
                         ))
 
             self.instance_service(method_name, stop=True)
+        return
 
     def get_encrypt_info(self):
+        if self.pubkey is None:
+            query_args = {
+                "method": "Security.getEncryptInfo",
+                "params": None,
+            }
 
-        query_args = {
-            "method": "Security.getEncryptInfo",
-            "params": None,
-        }
+            dh_data = self.send_call(query_args)
 
-        dh_data = self.send_call(query_args)
+            if not dh_data:
+                log.failure("\033[92m[\033[91mEncrypt Info: Fail\033[92m]\033[0m")
+                return False
 
-        if not dh_data:
-            log.failure("\033[92m[\033[91mEncrypt Info: Fail\033[92m]\033[0m")
-            return
-
-        if dh_data.get('result'):
-            pub = dh_data.get('params').get('pub').split(",")
-            log.success(
-                "\033[92m[\033[91mEncrypt Info\033[92m]\033[0m\nAsymmetric:"
-                " {}, Cipher: {}, Padding: {}, RSA Exp.: {}\nRSA Modulus:\n{}".format(
-                    dh_data.get('params').get('asymmetric'),
-                    '; '.join(dh_data.get('params').get('cipher', ["(null)"])),
-                    '; '.join(dh_data.get('params').get('AESPadding', ["(null)"])),
-                    pub[1].split(":")[1],
-                    pub[0].split(":")[1],
-                ))
-            pubkey = RSA.construct((int(pub[0].split(":")[1], 16), int(pub[1].split(":")[1], 16)))
-            print(pubkey.exportKey().decode('ascii'))
+            if dh_data.get('result'):
+                pub = dh_data.get('params').get('pub').split(",")
+                log.success(
+                    "\033[92m[\033[91mEncrypt Info\033[92m]\033[0m\nAsymmetric:"
+                    " {}, Cipher: {}, Padding: {}, RSA Exp.: {}\nRSA Modulus:\n{}".format(
+                        dh_data.get('params').get('asymmetric'),
+                        '; '.join(dh_data.get('params').get('cipher', ["(null)"])),
+                        '; '.join(dh_data.get('params').get('AESPadding', ["(null)"])),
+                        pub[1].split(":")[1],
+                        pub[0].split(":")[1],
+                    ))
+                self.pubkey = RSA.construct((int(pub[0].split(":")[1], 16), int(pub[1].split(":")[1], 16)))
+            else:
+                log.failure("\033[92m[\033[91mEncrypt Info: Unexpected header\033[92m]\033[0m")
+                return False
+        print(self.pubkey.exportKey().decode('ascii'))
+        return True
 
     def get_remote_info(self, msg):
 
@@ -1046,7 +1132,7 @@ class DahuaFunctions(Network):
                     size(tmp.get('total', 0)),
                     size(tmp.get('free', 0))
                 ))
-            self.dev_storage()
+            # self.dev_storage()
             self.get_encrypt_info()
 
         elif cmd[0] == 'certificate':
